@@ -1,0 +1,10 @@
+[project]
+name = "exhibit-vote-backend"
+version = "0.1.0"
+description = "FastAPI backend for exhibit pairwise voting"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlmodel",
+]
