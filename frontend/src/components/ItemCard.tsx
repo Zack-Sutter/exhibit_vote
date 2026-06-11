@@ -1,3 +1,4 @@
+import { assetUrl } from "../api/client";
 import type { Item } from "../types";
 
 interface ItemCardProps {
@@ -7,6 +8,8 @@ interface ItemCardProps {
 }
 
 export function ItemCard({ item, onSelect, disabled = false }: ItemCardProps) {
+  const imageSrc = assetUrl(item.image_url);
+
   return (
     <button
       type="button"
@@ -14,8 +17,8 @@ export function ItemCard({ item, onSelect, disabled = false }: ItemCardProps) {
       onClick={onSelect}
       disabled={disabled}
     >
-      {item.image_url ? (
-        <img src={item.image_url} alt={item.name} className="item-card__image" />
+      {imageSrc ? (
+        <img src={imageSrc} alt={item.name} className="item-card__image" />
       ) : (
         <div className="item-card__placeholder" aria-hidden="true">
           {item.name.charAt(0)}
