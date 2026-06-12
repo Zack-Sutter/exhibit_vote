@@ -238,7 +238,7 @@ Interactive docs: `http://localhost:8000/docs`
 ### Vote page (`/`)
 
 1. `VotePage` mounts → `getPair()` → `GET /api/pair`
-2. Renders `PairComparison` with two `ItemCard`s
+2. Renders `PairComparison` with two `ItemCard`s (images via `assetUrl(item.image_url)`)
 3. User clicks card → `submitVote({ winner_id, loser_id })` → `POST /api/vote`
 4. On success → `loadPair()` again
 5. Loading/error/submitting states handled with local `useState`
