@@ -11,8 +11,10 @@ import { VotePane } from "./VotePane";
 import { VsDivider } from "./VsDivider";
 
 const REST_RATIO = 0.5;
-const COMMIT_THRESHOLD = 0.18;
-const VELOCITY_THRESHOLD = 0.5;
+const COMMIT_THRESHOLD = 0.12;
+const VELOCITY_THRESHOLD = 0.35;
+const FLICK_RATIO_A_MIN = 0.45;
+const FLICK_RATIO_B_MAX = 0.55;
 const MIN_RATIO = 0.05;
 const MAX_RATIO = 0.95;
 const SNAP_MS = 250;
@@ -62,6 +64,7 @@ export function SwipeVoteArena({
   const splitRatioRef = useRef(splitRatio);
   const phaseRef = useRef(phase);
   const lastPointerRef = useRef<{ y: number; t: number } | null>(null);
+  const dragStartRef = useRef<{ y: number; ratio: number } | null>(null);
   const velocityRef = useRef(0);
 
   splitRatioRef.current = splitRatio;
@@ -118,11 +121,19 @@ export function SwipeVoteArena({
       const swipeUp = velocity < -VELOCITY_THRESHOLD;
       const swipeDown = velocity > VELOCITY_THRESHOLD;
 
-      if (ratio <= COMMIT_THRESHOLD || (swipeUp && ratio < 0.28)) {
+      if (swipeUp && ratio < FLICK_RATIO_B_MAX) {
         await commitVote(itemB, itemA, 0);
         return;
       }
-      if (ratio >= 1 - COMMIT_THRESHOLD || (swipeDown && ratio > 0.72)) {
+      if (swipeDown && ratio > FLICK_RATIO_A_MIN) {
+        await commitVote(itemA, itemB, 1);
+        return;
+      }
+      if (ratio <= COMMIT_THRESHOLD) {
+        await commitVote(itemB, itemA, 0);
+        return;
+      }
+      if (ratio >= 1 - COMMIT_THRESHOLD) {
         await commitVote(itemA, itemB, 1);
         return;
       }
@@ -134,12 +145,13 @@ export function SwipeVoteArena({
     [commitVote, itemA, itemB, animateRatio],
   );
 
-  const updateRatioFromPointer = useCallback((clientY: number) => {
+  const updateRatioFromDrag = useCallback((clientY: number) => {
+    const start = dragStartRef.current;
     const arena = arenaRef.current;
-    if (!arena) return;
+    if (!start || !arena) return;
     const rect = arena.getBoundingClientRect();
-    const raw = (clientY - rect.top) / rect.height;
-    setSplitRatio(rubberBand(clamp(raw, 0, 1)));
+    const deltaRatio = (clientY - start.y) / rect.height;
+    setSplitRatio(rubberBand(clamp(start.ratio + deltaRatio, 0, 1)));
   }, []);
 
   const onPointerDown = useCallback(
@@ -147,11 +159,11 @@ export function SwipeVoteArena({
       if (disabled || phaseRef.current !== "idle") return;
       arenaRef.current?.setPointerCapture(event.pointerId);
       setPhase("dragging");
+      dragStartRef.current = { y: event.clientY, ratio: splitRatioRef.current };
       lastPointerRef.current = { y: event.clientY, t: event.timeStamp };
       velocityRef.current = 0;
-      updateRatioFromPointer(event.clientY);
     },
-    [disabled, updateRatioFromPointer],
+    [disabled],
   );
 
   const onPointerMove = useCallback(
@@ -165,9 +177,9 @@ export function SwipeVoteArena({
         }
         lastPointerRef.current = { y: event.clientY, t: event.timeStamp };
       }
-      updateRatioFromPointer(event.clientY);
+      updateRatioFromDrag(event.clientY);
     },
-    [updateRatioFromPointer],
+    [updateRatioFromDrag],
   );
 
   const onPointerUp = useCallback(
@@ -177,6 +189,7 @@ export function SwipeVoteArena({
         arenaRef.current.releasePointerCapture(event.pointerId);
       }
       lastPointerRef.current = null;
+      dragStartRef.current = null;
       void resolveRelease(splitRatioRef.current, velocityRef.current);
     },
     [resolveRelease],
@@ -208,14 +221,24 @@ export function SwipeVoteArena({
   const pA = focusProgress(splitRatio, "a");
   const pB = focusProgress(splitRatio, "b");
   const inputLocked = disabled || phase === "committing" || phase === "snapping";
+  const ariaValue = Math.round((1 - splitRatio) * 100);
 
   return (
     <div
       ref={arenaRef}
       className={`swipe-vote${isDragging ? " swipe-vote--dragging" : ""}`}
+      role="slider"
+      tabIndex={inputLocked ? -1 : 0}
+      aria-label="Swipe up or down to vote"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={ariaValue}
+      aria-disabled={inputLocked}
+      onPointerDown={inputLocked ? undefined : onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onKeyDown={inputLocked ? undefined : onKeyDown}
     >
       <div
         className={`swipe-vote__pane-slot swipe-vote__pane-slot--top${animate ? " swipe-vote__pane-slot--animate" : ""}`}
@@ -246,10 +269,7 @@ export function SwipeVoteArena({
       <VsDivider
         splitRatio={splitRatio}
         isDragging={isDragging}
-        disabled={inputLocked}
         loading={disabled || phase === "committing"}
-        onPointerDown={onPointerDown}
-        onKeyDown={onKeyDown}
       />
 
       <div className="swipe-vote__sr-only" aria-live="polite">

@@ -26,7 +26,7 @@ export function StatsPage() {
   }, []);
 
   return (
-    <section className="page">
+    <section className="page page--stats">
       <header className="page__header">
         <h1>Exhibit rankings</h1>
         <p>Based on head-to-head votes.</p>

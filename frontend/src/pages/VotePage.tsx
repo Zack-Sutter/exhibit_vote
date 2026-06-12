@@ -37,6 +37,15 @@ export function VotePage() {
     void loadPair();
   }, [loadPair]);
 
+  useEffect(() => {
+    if (!isMobile) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isMobile]);
+
   async function handleVote(winnerId: number, loserId: number) {
     setSubmitting(true);
     setError(null);
@@ -82,10 +91,6 @@ export function VotePage() {
             disabled={submitting}
           />
         )
-      ) : null}
-
-      {isMobile && !loading && itemA && itemB ? (
-        <p className="page--vote__hint">Swipe the bar to choose.</p>
       ) : null}
     </section>
   );

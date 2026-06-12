@@ -1,7 +1,0 @@
-- swipe anywhere, not just badge
-- velocity based commit
-- lower threshold commit
-- fill background panel with color
-- remove swipe the bar instruction at the bottom of the page, the page should not scroll at all.
-- stats page should not need to horizontal scroll
-- stats page, gold, silver, bronze for top 3.

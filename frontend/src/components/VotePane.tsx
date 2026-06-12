@@ -1,5 +1,7 @@
+import { useEffect, useState, type SyntheticEvent } from "react";
 import { assetUrl } from "../api/client";
 import type { Item } from "../types";
+import { extractEdgeColor } from "../utils/imageColor";
 
 export type TitleAnchor = "bottom-left" | "top-right";
 
@@ -12,7 +14,7 @@ interface VotePaneProps {
 }
 
 const PLACEHOLDER_BG = "#eff6ff";
-const IMAGE_BG = "#1e293b";
+const IMAGE_BG_FALLBACK = "#1e293b";
 
 export function VotePane({
   item,
@@ -22,7 +24,13 @@ export function VotePane({
   animate,
 }: VotePaneProps) {
   const imageSrc = assetUrl(item.image_url);
-  const bgColor = imageSrc ? IMAGE_BG : PLACEHOLDER_BG;
+  const [bgColor, setBgColor] = useState(
+    imageSrc ? IMAGE_BG_FALLBACK : PLACEHOLDER_BG,
+  );
+
+  useEffect(() => {
+    setBgColor(imageSrc ? IMAGE_BG_FALLBACK : PLACEHOLDER_BG);
+  }, [item.id, imageSrc]);
 
   const scale =
     winProgress > 0
@@ -44,6 +52,13 @@ export function VotePane({
     .filter(Boolean)
     .join(" ");
 
+  function handleImageLoad(event: SyntheticEvent<HTMLImageElement>) {
+    const color = extractEdgeColor(event.currentTarget);
+    if (color) {
+      setBgColor(color);
+    }
+  }
+
   return (
     <div
       className={`swipe-vote__pane swipe-vote__pane--${position}`}
@@ -62,6 +77,8 @@ export function VotePane({
             alt=""
             className="swipe-vote__pane-image"
             draggable={false}
+            crossOrigin="anonymous"
+            onLoad={handleImageLoad}
           />
         ) : (
           <div className="swipe-vote__pane-placeholder" aria-hidden="true">
