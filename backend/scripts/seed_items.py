@@ -1,6 +1,7 @@
-"""Seed the database with MoMath exhibit items from images/momath_icons."""
+"""Seed the database with MoMath exhibit items from a fixed manifest."""
 
 import argparse
+import json
 import re
 from pathlib import Path
 
@@ -8,9 +9,8 @@ from sqlmodel import Session, select
 
 from app.database import create_db_and_tables, engine
 from app.models import Item, Vote
-from app.paths import ICONS_DIR
 
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+MANIFEST_PATH = Path(__file__).resolve().parent / "exhibit_manifest.json"
 
 # Filenames that do not already match the exhibit display name.
 NAME_OVERRIDES: dict[str, str] = {
@@ -30,8 +30,8 @@ def _camel_to_words(value: str) -> str:
     return re.sub(r"\s+", " ", spaced).strip()
 
 
-def name_from_icon_path(path: Path) -> str:
-    stem = path.stem
+def name_from_filename(filename: str) -> str:
+    stem = Path(filename).stem
     if stem in NAME_OVERRIDES:
         return NAME_OVERRIDES[stem]
 
@@ -42,26 +42,24 @@ def name_from_icon_path(path: Path) -> str:
     return stem
 
 
-def image_url_for_icon(path: Path) -> str:
-    return f"/images/momath_icons/{path.name}"
+def image_url_for_filename(filename: str) -> str:
+    return f"/images/momath_icons/{filename}"
 
 
-def discover_exhibits(icons_dir: Path) -> list[Item]:
-    if not icons_dir.is_dir():
-        raise FileNotFoundError(f"Icons directory not found: {icons_dir}")
+def load_exhibits_from_manifest(manifest_path: Path) -> list[Item]:
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    filenames = data.get("icons", [])
+    if not filenames:
+        raise ValueError(f"No icons listed in {manifest_path}")
 
-    items: list[Item] = []
-    for path in sorted(icons_dir.iterdir()):
-        if not path.is_file() or path.suffix.lower() not in IMAGE_EXTENSIONS:
-            continue
-        items.append(
-            Item(
-                name=name_from_icon_path(path),
-                description="",
-                image_url=image_url_for_icon(path),
-            )
+    return [
+        Item(
+            name=name_from_filename(filename),
+            description="",
+            image_url=image_url_for_filename(filename),
         )
-    return items
+        for filename in filenames
+    ]
 
 
 def clear_items_and_votes(session: Session) -> None:
@@ -73,17 +71,18 @@ def clear_items_and_votes(session: Session) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed exhibit items from momath icons.")
+    parser = argparse.ArgumentParser(description="Seed exhibit items from manifest.")
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Delete existing votes and items, then re-seed from icons.",
+        help="Delete existing votes and items, then re-seed from manifest.",
     )
     args = parser.parse_args()
 
-    exhibits = discover_exhibits(ICONS_DIR)
-    if not exhibits:
-        raise SystemExit(f"No icon images found in {ICONS_DIR}")
+    if not MANIFEST_PATH.is_file():
+        raise SystemExit(f"Manifest not found: {MANIFEST_PATH}")
+
+    exhibits = load_exhibits_from_manifest(MANIFEST_PATH)
 
     create_db_and_tables()
     with Session(engine) as session:
@@ -92,7 +91,7 @@ def main() -> None:
             count = len(session.exec(select(Item)).all())
             print(
                 f"Database already has {count} item(s). Skipping seed. "
-                "Use --force to replace with icon data."
+                "Use --force to replace with manifest data."
             )
             return
 
@@ -102,7 +101,7 @@ def main() -> None:
         for item in exhibits:
             session.add(item)
         session.commit()
-        print(f"Seeded {len(exhibits)} items from {ICONS_DIR}.")
+        print(f"Seeded {len(exhibits)} items from {MANIFEST_PATH.name}.")
 
 
 if __name__ == "__main__":

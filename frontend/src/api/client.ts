@@ -5,6 +5,8 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "";
 export function assetUrl(path: string | null): string | null {
   if (!path) return null;
   if (path.startsWith("http")) return path;
+  // Static exhibit images are served from the frontend (Vite public/).
+  if (path.startsWith("/images/")) return path;
   return `${API_BASE}${path}`;
 }
 

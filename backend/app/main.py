@@ -1,9 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.database import create_db_and_tables
-from app.paths import IMAGES_DIR
 from app.routers import pairs, stats, votes
 
 app = FastAPI(title="Exhibit Vote API")
@@ -21,9 +19,6 @@ app.add_middleware(
 app.include_router(pairs.router)
 app.include_router(votes.router)
 app.include_router(stats.router)
-
-if IMAGES_DIR.is_dir():
-    app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 
 @app.on_event("startup")
